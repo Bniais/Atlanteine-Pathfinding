@@ -1,5 +1,5 @@
 *.layout
-*.depend
 *.cbp
-bin
-obj
+*.exe
+*.depend
+*.o
