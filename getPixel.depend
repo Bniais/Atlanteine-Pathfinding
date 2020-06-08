@@ -1,0 +1,5 @@
+# depslib dependency file v1.0
+1591629319 source:d:\documents\github\getpixel\main.c
+	<windows.h>
+	<stdio.h>
+
