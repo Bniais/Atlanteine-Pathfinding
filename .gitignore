@@ -3,3 +3,6 @@
 *.exe
 *.depend
 *.o
+*.dll
+*.exe
+*.o
