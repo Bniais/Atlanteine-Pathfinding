@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define NB_CASES 13
-#define MAX_PATH 20
+#define MAX_PATHS 20
 const char* DIRECTION[4] = {"bas", "gauche", "haut", "droite"};
 
 POINT grilleRef = {584, 579};
@@ -53,7 +53,7 @@ int isTeleport(DWORD color){
 }
 
 int isHole(DWORD color){
-	return( (GetBValue(color) > 70 && GetBValue(color) <= 91) && (GetGValue(color) > 85 && GetGValue(color) < 135) && (GetRValue(color) > 85 && GetRValue(color) < 135) );
+	return( (GetBValue(color) > 70 && GetBValue(color) <= 91) && (GetGValue(color) > 85 && GetGValue(color) <= 135) && (GetRValue(color) > 85 && GetRValue(color) < 140) );
 }
 
 int isUnknown(DWORD color){
@@ -108,92 +108,226 @@ COLORREF RGB2BGR(DWORD color)
     return RGB(GetBValue(color), GetGValue(color), GetRValue(color));
 }
 
-void findPath(int grille[NB_CASES][NB_CASES], int path[MAX_PATH+1]){
-	int grilleCpy[NB_CASES][NB_CASES];
+enum {LOSE, MOVED, WIN};
+int move(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP){
+	if(dir==0){//down
+		int move;
+		for(move=1; *yP+move < NB_CASES && grilleCpy[*xP][*yP+move] == PLAIN; move++);
+		if (*yP+move >= NB_CASES || grilleCpy[*xP][*yP+move] == WATER)
+			return LOSE;
+		else if (grilleCpy[*xP][*yP+move] == HOLE)
+			return WIN;
+		else{
+			grilleCpy[*xP][*yP] = PLAIN;
+			grilleCpy[*xP][*yP+move-1] = PUMPKIN;
+			*yP += move-1;
+			return MOVED;
+		}
+	}
+	else if(dir==1){//left
+		int move;
+		for(move=1; *xP-move >=0 && grilleCpy[*xP-move][*yP] == PLAIN; move++);
+		if (*xP-move < 0 || grilleCpy[*xP-move][*yP] == WATER)
+			return LOSE;
+		else if (grilleCpy[*xP-move][*yP] == HOLE)
+			return WIN;
+		else{
+			grilleCpy[*xP][*yP] = PLAIN;
+			grilleCpy[*xP-move+1][*yP] = PUMPKIN;
+			*xP -= move-1;
+			return MOVED;
+		}
+	}
+	else if(dir==2){//up
+		int move;
+		for(move=1; *yP-move >=0 && grilleCpy[*xP][*yP-move] == PLAIN; move++);
+		if (*yP-move < 0 || grilleCpy[*xP][*yP-move] == WATER)
+			return LOSE;
+		else if (grilleCpy[*xP][*yP-move] == HOLE)
+			return WIN;
+		else{
+			grilleCpy[*xP][*yP] = PLAIN;
+			grilleCpy[*xP][*yP-move+1] = PUMPKIN;
+			*yP -= move-1;
+			return MOVED;
+		}
+	}
+	else {//right
+		int move;
+		for(move=1; *xP+move < NB_CASES && grilleCpy[*xP+move][*yP] == PLAIN; move++);
+		if (*xP+move >= NB_CASES || grilleCpy[*xP+move][*yP] == WATER)
+			return LOSE;
+		else if (grilleCpy[*xP+move][*yP] == HOLE)
+			return WIN;
+		else{
+			grilleCpy[*xP][*yP] = PLAIN;
+			grilleCpy[*xP+move-1][*yP] = PUMPKIN;
+			*xP += move-1;
+			return MOVED;
+		}
+	}
+}
+
+int findPathRecur(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bestPath[MAX_PATHS+1], int *minLenght, int lastDir, int iPath, int xPi, int yPi, int *canUseBox){
+	int dir = -1;
 	int xP, yP;
+	int lenght = -1;
+
+	if(iPath >MAX_PATHS || iPath >= *minLenght)
+		return LOSE;
+
+	int grilleCpy[NB_CASES][NB_CASES];
+
 	while(1){
-		for(int i=0;i<NB_CASES;i++)
-			for(int j=0;j<NB_CASES;j++){
-				grilleCpy[i][j] = grille[i][j];
-				if(grille[i][j] == PUMPKIN){
-					xP=i;
-					yP=j;
-				}
-			}
+		if(lastDir==-1)
+			printf("START\n");
+		do{
+			dir++;
+		}while(dir == lastDir || (lastDir != -1 && dir == (lastDir+2)%4));
 
-		int dir = -1;
-		for(int i=0; i<MAX_PATH; i++){
-			//printf("%d %d\n", xP, yP);
-			int lastDir = dir;
-			if(dir==-1){
-				printf("START\n");
-				dir = rand()%4;
-			}
-			else{
-				do{dir = rand()%4;}while(dir == lastDir || dir == (lastDir+2)%4);
-			}
-			printf("%s\n", DIRECTION[dir] );
-			path[i]=dir;
-			if(dir==0){//down
-				while(yP+1 < NB_CASES && grilleCpy[xP][yP+1] == PLAIN){
-					grilleCpy[xP][yP] = PLAIN;
-					grilleCpy[xP][yP+1] = PUMPKIN;
-					yP++;
-				}
+		if(dir > 3)
+			return lenght;
+		else{
+			printf("%d : %s",iPath, DIRECTION[dir] );
+			xP = xPi;
+			yP = yPi;
+			memcpy(&(grilleCpy[0][0]), &(grille[0][0]), NB_CASES* NB_CASES*sizeof(int));
+			path[iPath]=dir;
 
-				if(yP+1 >= NB_CASES || grilleCpy[xP][yP+1] == WATER)
-					break;
-				else if (grilleCpy[xP][yP+1] == HOLE){
-					path[i+1] = -1;
-					return;
+			int result = move(grilleCpy, dir, &xP, &yP);
+			printf(" mv%d\n", result );
+			if(result == WIN){
+				path[iPath+1] = -1;
+				lenght = iPath+1;
+				if(lenght > iPath  && lenght < *minLenght){
+					printf("Writing new best path : ");
+					for(int p = 0; p<lenght+1; p++){
+						bestPath[p] = path[p];
+						printf("%s ", DIRECTION[bestPath[p]]);
+					}
+					printf("\n");
+					*minLenght = lenght;
 				}
+				return iPath+1;
 			}
-			if(dir==1){//left
-				while(xP-1 >=0 && grilleCpy[xP-1][yP] == PLAIN){
-					grilleCpy[xP][yP] = PLAIN;
-					grilleCpy[xP-1][yP] = PUMPKIN;
-					xP--;
-				}
+			else if(result == MOVED && (xP != xPi || yP != yPi)){
+				lenght = findPathRecur(grilleCpy, path, bestPath, minLenght, dir, iPath+1, xP, yP);
+				printf("%d : %s lg%d\n",iPath, DIRECTION[dir], lenght);
 
-				if(xP-1 < 0 || grilleCpy[xP-1][yP] == WATER)
-					break;
-				else if (grilleCpy[xP-1][yP] == HOLE){
-					path[i+1] = -1;
-					return;
-				}
-			}
-			if(dir==2){//up
-				while(yP-1 >=0 && grilleCpy[xP][yP-1] == PLAIN){
-					grilleCpy[xP][yP] = PLAIN;
-					grilleCpy[xP][yP-1] = PUMPKIN;
-					yP--;
-				}
-
-				if(yP-1 < 0 || grilleCpy[xP][yP-1] == WATER)
-					break;
-				else if (grilleCpy[xP][yP-1] == HOLE){
-					path[i+1] = -1;
-					return;
-				}
-			}
-			if(dir==3){//right
-				while(xP+1 < NB_CASES && grilleCpy[xP+1][yP] == PLAIN){
-					grilleCpy[xP][yP] = PLAIN;
-					grilleCpy[xP+1][yP] = PUMPKIN;
-					xP++;
-				}
-
-				if(xP-1 >= NB_CASES || grilleCpy[xP+1][yP] == WATER)
-					break;
-				else if (grilleCpy[xP+1][yP] == HOLE){
-					path[i+1] = -1;
-					return;
-				}
+				if(lenght > 0 && iPath > lenght - 3)
+					return lenght;
 			}
 		}
 	}
 }
 
+
+int findPath(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bestPath[MAX_PATHS+1], int *minLenght, int canUseBox){
+	int xPi, yPi;
+	for(int j=0;j<NB_CASES;j++){
+		for(int i=0;i<NB_CASES;i++){
+			if(grille[i][j] == PUMPKIN){
+				xPi=i;
+				yPi=j;
+			}
+		}
+	}
+
+	findPathRecur(grille, path, bestPath,minLenght, -1, 0, xPi, yPi, &canUseBox);
+	printf("lenght : %d\n", minLenght);
+	return minLenght;
+}
+
+void scanScreen(){
+	xCopyScreen();
+	if(grilleStart.x == 0){// scan grille size (only first time)
+		for(int x=0; x<Screen.cx && grilleStart.x == 0; x+=25){
+	        for(int y=0; y<Screen.cy && grilleStart.x == 0; y+=25){
+
+	            _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + x]);
+				printf("%d %d : %d %d %d\n", x, y, GetRValue(_color),GetGValue(_color),GetBValue(_color));
+	            if(_color == BACKGROUND_COLOR){
+	                grilleStart.x = x;
+	                while(_color == BACKGROUND_COLOR){
+	                    grilleStart.x--;
+	                    _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + grilleStart.x]);
+	                }
+	                grilleStart.x++;
+
+	                do{
+	                    grilleSize.x+=25;
+	                    _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + grilleStart.x + grilleSize.x]);
+	                }while(_color == BACKGROUND_COLOR);
+
+	                while(_color != BACKGROUND_COLOR){
+	                    grilleSize.x--;
+	                    _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + grilleStart.x + grilleSize.x]);
+	                };
+
+	                grilleStart.y = y;
+	                do{
+	                    grilleStart.y--;
+	                    _color = RGB2BGR(Screen.pixels[(grilleStart.y * Screen.cx) + grilleStart.x]);
+	                }while(_color == BACKGROUND_COLOR);
+	                grilleStart.y++;
+	            }
+	        }
+	    }
+		coefSize = grilleSize.x / (float)grilleRef.x;
+		grilleSize.y = grilleRef.y * coefSize;
+		printf("coef size%f\n", coefSize);
+		printf("pos : %ld %ld\n", grilleStart.x, grilleStart.y);
+		printf("size : %ld %ld\n", grilleSize.x, grilleSize.y);
+	}
+
+	//analyse
+	for(int i=0;i<NB_CASES;i++){
+		for(int j=0; j<NB_CASES; j++){
+			grille_color[i][j] = Screen.pixels[((int)(grilleStart.y + initShift.y*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
+			int found = SDL_FALSE;
+			DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_TP)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
+			if( isTerrain[TELEPORT](color) ){
+				grille[i][j] = TELEPORT;
+				found = SDL_TRUE;
+			}
+			if(!found)
+				for(int terrain=0; terrain < NB_TERRAIN-1; terrain++){
+					if( terrain != TELEPORT && isTerrain[terrain](grille_color[i][j]) ){
+						if(terrain == WATER || terrain == HOLE){
+							DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_HOLE)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
+							if( isTerrain[WATER](color) )
+								terrain = WATER;
+							else
+								terrain = HOLE;
+						}
+						grille[i][j]=terrain;
+						found = SDL_TRUE;
+						break;
+					}
+				}
+			if(!found)
+				for(int terrain=0; terrain < NB_TERRAIN-1; terrain++){
+					DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_TP)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
+
+					if( terrain != TELEPORT && isTerrain[terrain](color) ){
+						grille[i][j]=terrain;
+						break;
+					}
+				}
+
+
+			//printf("%d %d %d", GetRValue(grille_color[i][j]),GetGValue(grille_color[i][j]),GetBValue(grille_color[i][j]));
+			//printf("%d\n", grille[i][j]);
+
+		}
+		//printf("\n");
+	}
+	grille[NB_CASES-1][NB_CASES-1] = WATER;
+
+	//find solution
+
+
+}
 
 int main(int argc, char** argv)
 {
@@ -202,166 +336,88 @@ int main(int argc, char** argv)
 	ShowWindow( hWnd, SW_HIDE );*/
 	SDL_Init(SDL_INIT_VIDEO );
 	xSetupScreenBitmap();
-	SDL_Delay(2000);
-	xCopyScreen();
 
-	if(argc == 5){
-        sscanf(argv[1], "%ld", &(grilleStart.x));
-		sscanf(argv[2], "%ld", &(grilleStart.y));
-		sscanf(argv[3], "%ld", &(grilleSize.x));
-		sscanf(argv[4], "%ld", &(grilleSize.y));
+
+    printf("size : %d %d\n", (int)Screen.cx, (int)Screen.cy);
+
+
+
+
+
+
+
+
+
+
+	SDL_Window* window = SDL_CreateWindow("Atlentaine Pathfinder", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 130, 130, 0);
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
+	SDL_Texture *texture = IMG_LoadTexture(renderer, "texture.png");
+	if( texture == NULL ){
+		printf("Erreur lors de la creation de texture %s", SDL_GetError());
+		return SDL_FALSE;
 	}
 
-    HINSTANCE _hGDI = LoadLibrary("gdi32.dll");
-    if(_hGDI)
-    {
-        printf("size : %d %d\n", (int)Screen.cx, (int)Screen.cy);
-
-        POINT _cursor;
-        GetCursorPos(&_cursor);
-
-        if(argc!=5){
-            for(int x=0; x<Screen.cx && grilleStart.x == 0; x+=25){
-                for(int y=0; y<Screen.cy && grilleStart.x == 0; y+=25){
-
-                    _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + x]);
-					printf("%d %d : %d %d %d\n", x, y, GetRValue(_color),GetGValue(_color),GetBValue(_color));
-                    if(_color == BACKGROUND_COLOR){
-                        grilleStart.x = x;
-                        while(_color == BACKGROUND_COLOR){
-                            grilleStart.x--;
-                            _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + grilleStart.x]);
-                        }
-                        grilleStart.x++;
-
-                        do{
-                            grilleSize.x+=25;
-                            _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + grilleStart.x + grilleSize.x]);
-                        }while(_color == BACKGROUND_COLOR);
-
-                        while(_color != BACKGROUND_COLOR){
-                            grilleSize.x--;
-                            _color = RGB2BGR(Screen.pixels[(y * Screen.cx) + grilleStart.x + grilleSize.x]);
-                        };
-
-                        grilleStart.y = y;
-                        do{
-                            grilleStart.y--;
-                            _color = RGB2BGR(Screen.pixels[(grilleStart.y * Screen.cx) + grilleStart.x]);
-                        }while(_color == BACKGROUND_COLOR);
-                        grilleStart.y++;
-                    }
-                }
-            }
+	SDL_RenderClear(renderer);
+	while(1){
 
 
-			coefSize = grilleSize.x / (float)grilleRef.x;
-			grilleSize.y = grilleRef.y * coefSize;
-			printf("coef size%f\n", coefSize);
-            printf("pos : %ld %ld\n", grilleStart.x, grilleStart.y);
-			printf("size : %ld %ld\n", grilleSize.x, grilleSize.y);
-
-
-			for(int i=0;i<NB_CASES;i++){
-				for(int j=0; j<NB_CASES; j++){
-					grille_color[i][j] = Screen.pixels[((int)(grilleStart.y + initShift.y*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
-					int found = SDL_FALSE;
-					DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_TP)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
-					if( isTerrain[TELEPORT](color) ){
-						grille[i][j] = TELEPORT;
-						found = SDL_TRUE;
-					}
-					if(!found)
-						for(int terrain=0; terrain < NB_TERRAIN-1; terrain++){
-							if( terrain != TELEPORT && isTerrain[terrain](grille_color[i][j]) ){
-								if(terrain == WATER || terrain == HOLE){
-									DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_HOLE)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
-									if( isTerrain[WATER](color) )
-										terrain = WATER;
-									else
-										terrain = HOLE;
-								}
-								grille[i][j]=terrain;
-								found = SDL_TRUE;
-								break;
-							}
-						}
-					if(!found)
-						for(int terrain=0; terrain < NB_TERRAIN-1; terrain++){
-							DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_TP)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
-
-							if( terrain != TELEPORT && isTerrain[terrain](color) ){
-								grille[i][j]=terrain;
-								break;
-							}
-						}
-
-
-					printf("%d %d %d", GetRValue(grille_color[i][j]),GetGValue(grille_color[i][j]),GetBValue(grille_color[i][j]));
-					printf("\ %d\n", grille[i][j]);
-
-				}
-				printf("\n");
+		SDL_Event event;
+		while( SDL_PollEvent(&event) ){
+			switch( event.type ){
+				case SDL_QUIT:
+					// fermer
+					return 0;
+					break;
 			}
-			grille[NB_CASES-1][NB_CASES-1] = WATER;
+		}
 
-			int path[MAX_PATH+1];
+		int findSolution = SDL_FALSE;
+		if((GetKeyState(VK_SPACE) & 0x8000)){//attente espace
+			scanScreen();
+			findSolution = SDL_TRUE;
+		}
 
-
-			SDL_Window* window = SDL_CreateWindow("Atlentaine Pathfinder", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 130, 130, 0);
-			SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
-			SDL_Texture *texture = IMG_LoadTexture(renderer, "texture.png");
-			if( texture == NULL ){
-				printf("Erreur lors de la creation de texture %s", SDL_GetError());
-				return SDL_FALSE;
-			}
-			SDL_RenderClear(renderer);
-			while(1){
-
-
-				SDL_Event event;
-				while( SDL_PollEvent(&event) ){
-					switch( event.type ){
-						case SDL_QUIT:
-							// fermer
-							return 0;
-							break;
-					}
-				}
-
-				SDL_Rect dest = {0,0, 10, 10};
-				SDL_Rect src = {0,0, 39, 39};
-				for(int j=0;j<NB_CASES;j++){
-					for(int i=0; i<NB_CASES; i++){
-						src.x = grille[i][j] * src.w;
-						SDL_RenderCopy(renderer, texture, &src, &dest);
-						/*SDL_SetRenderDrawColor(renderer, grille_color[i][j].r,grille_color[i][j].g,grille_color[i][j].b,255);
-						SDL_RenderFillRect(renderer, &dest);*/
-						dest.x+=10;
-					}
-
-					dest.y += 10;
-					dest.x = 0;
-				}
-
-				SDL_RenderPresent(renderer);
-
-				currentTime = SDL_GetTicks();
-				while( currentTime - lastTime < 1000./30 )
-					currentTime = SDL_GetTicks();
-
-				lastTime = currentTime;
-
-				SDL_RenderClear(renderer);
-				findPath(grille, path);
-				for(int i=0; i<MAX_PATH && path[i]!=-1; i++){
-					printf("%s - ",DIRECTION[path[i]]);
-				}
-				printf("FINI !\n");
+		SDL_Rect dest = {0,0, 10, 10};
+		SDL_Rect src = {0,0, 39, 39};
+		for(int j=0;j<NB_CASES;j++){
+			for(int i=0; i<NB_CASES; i++){
+				src.x = grille[i][j] * src.w;
+				SDL_RenderCopy(renderer, texture, &src, &dest);
+				/*SDL_SetRenderDrawColor(renderer, grille_color[i][j].r,grille_color[i][j].g,grille_color[i][j].b,255);
+				SDL_RenderFillRect(renderer, &dest);*/
+				dest.x+=10;
 			}
 
-        }
-        FreeLibrary(_hGDI);
-    }
+			dest.y += 10;
+			dest.x = 0;
+		}
+
+		SDL_RenderPresent(renderer);
+
+		currentTime = SDL_GetTicks();
+		while( currentTime - lastTime < 1000./30 )
+			currentTime = SDL_GetTicks();
+
+		lastTime = currentTime;
+
+		SDL_RenderClear(renderer);
+		if(findSolution){
+			int path[MAX_PATHS+1];
+			int bestPath[MAX_PATHS+1];
+			int minLenght = MAX_PATHS+2;
+			int canUseBox = SDL_FALSE;
+			findPath(grille, path, bestPath, SDL_FALSE);
+			if(minLenght == MAX_PATHS+2){
+				canUseBox = SDL_TRUE;
+				findPath(grille, path, bestPath, SDL_TRUE);
+			}
+
+
+			for(int i=0; i<MAX_PATHS && bestPath[i]!=-1; i++){
+				printf("%s - ",DIRECTION[bestPath[i]]);
+			}
+			printf("FINI !\n");
+		}
+	}
     return 0;
 }
