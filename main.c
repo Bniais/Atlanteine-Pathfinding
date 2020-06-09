@@ -211,7 +211,7 @@ int findPathRecur(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bes
 				return iPath+1;
 			}
 			else if(result == MOVED && (xP != xPi || yP != yPi)){
-				lenght = findPathRecur(grilleCpy, path, bestPath, minLenght, dir, iPath+1, xP, yP);
+				lenght = findPathRecur(grilleCpy, path, bestPath, minLenght, dir, iPath+1, xP, yP, canUseBox);
 				printf("%d : %s lg%d\n",iPath, DIRECTION[dir], lenght);
 
 				if(lenght > 0 && iPath > lenght - 3)
@@ -234,8 +234,8 @@ int findPath(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bestPath
 	}
 
 	findPathRecur(grille, path, bestPath,minLenght, -1, 0, xPi, yPi, &canUseBox);
-	printf("lenght : %d\n", minLenght);
-	return minLenght;
+	printf("lenght : %d\n", *minLenght);
+	return *minLenght;
 }
 
 void scanScreen(){
@@ -349,7 +349,7 @@ int main(int argc, char** argv)
 
 
 
-	SDL_Window* window = SDL_CreateWindow("Atlentaine Pathfinder", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 130, 130, 0);
+	SDL_Window* window = SDL_CreateWindow("Atlentaine Pathfinder", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 260, 260, 0);
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
 	SDL_Texture *texture = IMG_LoadTexture(renderer, "texture.png");
 	if( texture == NULL ){
@@ -377,7 +377,7 @@ int main(int argc, char** argv)
 			findSolution = SDL_TRUE;
 		}
 
-		SDL_Rect dest = {0,0, 10, 10};
+		SDL_Rect dest = {0,0, 20, 20};
 		SDL_Rect src = {0,0, 39, 39};
 		for(int j=0;j<NB_CASES;j++){
 			for(int i=0; i<NB_CASES; i++){
@@ -385,10 +385,10 @@ int main(int argc, char** argv)
 				SDL_RenderCopy(renderer, texture, &src, &dest);
 				/*SDL_SetRenderDrawColor(renderer, grille_color[i][j].r,grille_color[i][j].g,grille_color[i][j].b,255);
 				SDL_RenderFillRect(renderer, &dest);*/
-				dest.x+=10;
+				dest.x+=20;
 			}
 
-			dest.y += 10;
+			dest.y += 20;
 			dest.x = 0;
 		}
 
@@ -406,10 +406,10 @@ int main(int argc, char** argv)
 			int bestPath[MAX_PATHS+1];
 			int minLenght = MAX_PATHS+2;
 			int canUseBox = SDL_FALSE;
-			findPath(grille, path, bestPath, SDL_FALSE);
+			findPath(grille, path, bestPath, &minLenght, canUseBox);
 			if(minLenght == MAX_PATHS+2){
 				canUseBox = SDL_TRUE;
-				findPath(grille, path, bestPath, SDL_TRUE);
+				findPath(grille, path, bestPath, &minLenght, canUseBox);
 			}
 
 
