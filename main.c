@@ -20,6 +20,21 @@ POINT grilleStart = {0,0};
 
 DWORD grille_color[NB_CASES][NB_CASES];
 int grille[NB_CASES][NB_CASES];
+int grilleOmg[NB_CASES][NB_CASES]={
+	{2,2,1,1,0,0,0,2,2,1,1,1,1},
+	{0,0,5,0,0,5,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0,0,0,5},
+	{1,0,0,0,0,0,0,0,5,0,5,0,0},
+	{1,5,0,0,0,0,5,5,0,0,0,0,1},
+	{0,0,0,0,5,1,0,0,0,0,0,0,0},
+	{5,0,0,0,0,0,0,0,0,6,0,0,0},
+	{0,0,0,5,0,0,0,0,0,0,0,0,0},
+	{0,5,0,0,0,0,6,0,0,0,0,0,0},
+	{1,0,0,1,5,0,0,4,0,5,1,0,0},
+	{2,0,0,0,0,0,0,0,0,0,0,0,0},
+	{2,0,0,0,0,0,5,0,0,0,0,0,0},
+	{2,2,2,2,1,0,0,0,0,5,0,5,3},
+};
 
 COLORREF BACKGROUND_COLOR = 0x8f8a4e;
 COLORREF _color;
@@ -109,14 +124,37 @@ COLORREF RGB2BGR(DWORD color)
 }
 
 enum {LOSE, MOVED, WIN};
-int move(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP){
+int moveP(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP, int* canUseBox){
+	printf("moving %d %d \n", *xP, *yP);
+	int move = 0;
 	if(dir==0){//down
-		int move;
 		for(move=1; *yP+move < NB_CASES && grilleCpy[*xP][*yP+move] == PLAIN; move++);
 		if (*yP+move >= NB_CASES || grilleCpy[*xP][*yP+move] == WATER)
 			return LOSE;
 		else if (grilleCpy[*xP][*yP+move] == HOLE)
 			return WIN;
+		else if( move == 1 && grilleCpy[*xP][*yP+move] == CAISSE && *canUseBox && *yP+move+1 < NB_CASES && grilleCpy[*xP][*yP+move+1] == PLAIN){
+			printf("moved caisse\n\n\n\n");grilleCpy[*xP][*yP+move+1] = CAISSE;
+			grilleCpy[*xP][*yP+move] = PUMPKIN;
+			grilleCpy[*xP][*yP] = PLAIN;
+			*canUseBox = SDL_FALSE;
+			(*yP)++;
+			return MOVED;
+		}
+		else if (grilleCpy[*xP][*yP+move] == TELEPORT){	printf("tp\n");
+			for(int j=0;j<NB_CASES;j++){
+				for(int i=0;i<NB_CASES;i++){
+					if(grille[i][j] == TELEPORT && (i != *xP || j != *yP+move)  ){
+						grilleCpy[*xP][*yP] = PLAIN;
+						grilleCpy[i][j+1] = PUMPKIN;
+						*xP = i;
+						*yP = j+1;
+						int b = 0;
+						return moveP(grilleCpy, dir, xP, yP, &b);
+					}
+				}
+			}
+		}
 		else{
 			grilleCpy[*xP][*yP] = PLAIN;
 			grilleCpy[*xP][*yP+move-1] = PUMPKIN;
@@ -125,12 +163,33 @@ int move(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP){
 		}
 	}
 	else if(dir==1){//left
-		int move;
 		for(move=1; *xP-move >=0 && grilleCpy[*xP-move][*yP] == PLAIN; move++);
 		if (*xP-move < 0 || grilleCpy[*xP-move][*yP] == WATER)
 			return LOSE;
 		else if (grilleCpy[*xP-move][*yP] == HOLE)
 			return WIN;
+		else if(move == 1 && grilleCpy[*xP-move][*yP] == CAISSE && *canUseBox && *xP-move-1 >=0 && grilleCpy[*xP-move-1][*yP] == PLAIN){
+			printf("moved caisse\n\n\n\n");grilleCpy[*xP-move-1][*yP] = CAISSE;
+			grilleCpy[*xP-move][*yP] = PUMPKIN;
+			grilleCpy[*xP][*yP] = PLAIN;
+			*canUseBox = SDL_FALSE;
+			(*xP)--;
+			return MOVED;
+		}
+		else if (grilleCpy[*xP-move][*yP] == TELEPORT){printf("tp\n");
+			for(int j=0;j<NB_CASES;j++){
+				for(int i=0;i<NB_CASES;i++){
+					if(grille[i][j] == TELEPORT && (i != *xP-move || j != *yP)  ){
+						grilleCpy[*xP][*yP] = PLAIN;
+						grilleCpy[i-1][j] = PUMPKIN;
+						*xP = i-1;
+						*yP = j;
+						int b = 0;
+						return moveP(grilleCpy, dir, xP, yP, &b);
+					}
+				}
+			}
+		}
 		else{
 			grilleCpy[*xP][*yP] = PLAIN;
 			grilleCpy[*xP-move+1][*yP] = PUMPKIN;
@@ -139,12 +198,33 @@ int move(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP){
 		}
 	}
 	else if(dir==2){//up
-		int move;
 		for(move=1; *yP-move >=0 && grilleCpy[*xP][*yP-move] == PLAIN; move++);
 		if (*yP-move < 0 || grilleCpy[*xP][*yP-move] == WATER)
 			return LOSE;
 		else if (grilleCpy[*xP][*yP-move] == HOLE)
 			return WIN;
+		else if(move == 1 && grilleCpy[*xP][*yP-move] == CAISSE && *canUseBox && *yP-move-1 >=0 && grilleCpy[*xP][*yP-move-1] == PLAIN){
+			printf("moved caisse\n\n\n\n");grilleCpy[*xP][*yP-move-1] = CAISSE;
+			grilleCpy[*xP][*yP-move] = PUMPKIN;
+			grilleCpy[*xP][*yP] = PLAIN;
+			*canUseBox = SDL_FALSE;
+			(*yP)--;
+			return MOVED;
+		}
+		else if (grilleCpy[*xP][*yP-move] == TELEPORT){printf("tp\n");
+			for(int j=0;j<NB_CASES;j++){
+				for(int i=0;i<NB_CASES;i++){
+					if(grille[i][j] == TELEPORT && (i != *xP || j != *yP-move)  ){
+						grilleCpy[*xP][*yP] = PLAIN;
+						grilleCpy[i][j-1] = PUMPKIN;
+						*xP = i;
+						*yP = j-1;
+						int b = 0;
+						return moveP(grilleCpy, dir, xP, yP, &b);
+					}
+				}
+			}
+		}
 		else{
 			grilleCpy[*xP][*yP] = PLAIN;
 			grilleCpy[*xP][*yP-move+1] = PUMPKIN;
@@ -153,12 +233,34 @@ int move(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP){
 		}
 	}
 	else {//right
-		int move;
 		for(move=1; *xP+move < NB_CASES && grilleCpy[*xP+move][*yP] == PLAIN; move++);
 		if (*xP+move >= NB_CASES || grilleCpy[*xP+move][*yP] == WATER)
 			return LOSE;
 		else if (grilleCpy[*xP+move][*yP] == HOLE)
 			return WIN;
+		else if(move == 1 && grilleCpy[*xP+move][*yP] == CAISSE && *canUseBox && *xP+move+1 < NB_CASES && grilleCpy[*xP+move+1][*yP] == PLAIN){
+			printf("moved caisse\n\n\n\n");
+			grilleCpy[*xP+move+1][*yP] = CAISSE;
+			grilleCpy[*xP+move][*yP] = PUMPKIN;
+			grilleCpy[*xP][*yP] = PLAIN;
+			*canUseBox = SDL_FALSE;
+			(*xP)++;
+			return MOVED;
+		}
+		else if (grilleCpy[*xP+move][*yP] == TELEPORT){printf("tp\n");
+			for(int j=0;j<NB_CASES;j++){
+				for(int i=0;i<NB_CASES;i++){
+					if(grille[i][j] == TELEPORT && (i != *xP+move || j != *yP)  ){
+						grilleCpy[*xP][*yP] = PLAIN;
+						grilleCpy[i+1][j] = PUMPKIN;
+						*xP = i+1;
+						*yP = j;
+						int b=0;
+						return moveP(grilleCpy, dir, xP, yP, &b);
+					}
+				}
+			}
+		}
 		else{
 			grilleCpy[*xP][*yP] = PLAIN;
 			grilleCpy[*xP+move-1][*yP] = PUMPKIN;
@@ -166,12 +268,14 @@ int move(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP){
 			return MOVED;
 		}
 	}
+	return MOVED;
 }
 
 int findPathRecur(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bestPath[MAX_PATHS+1], int *minLenght, int lastDir, int iPath, int xPi, int yPi, int *canUseBox){
 	int dir = -1;
 	int xP, yP;
 	int lenght = -1;
+	int canUseBoxI = *canUseBox;
 
 	if(iPath >MAX_PATHS || iPath >= *minLenght)
 		return LOSE;
@@ -179,22 +283,27 @@ int findPathRecur(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bes
 	int grilleCpy[NB_CASES][NB_CASES];
 
 	while(1){
+		*canUseBox = canUseBoxI;
 		if(lastDir==-1)
 			printf("START\n");
+
 		do{
 			dir++;
-		}while(dir == lastDir || (lastDir != -1 && dir == (lastDir+2)%4));
+			printf("dir : %d (%d) box : %d\n", dir, lastDir, *canUseBox );
+		}while( dir == -1 || (dir == lastDir && !(*canUseBox)) || (lastDir != -1 && dir == (lastDir+2)%4) );
 
+		printf("%d\n",dir );
 		if(dir > 3)
-			return lenght;
+			return LOSE;
 		else{
-			printf("%d : %s",iPath, DIRECTION[dir] );
+
 			xP = xPi;
 			yP = yPi;
+			printf("%d : %s, %d %d",iPath, DIRECTION[dir], xP, yP );
 			memcpy(&(grilleCpy[0][0]), &(grille[0][0]), NB_CASES* NB_CASES*sizeof(int));
 			path[iPath]=dir;
 
-			int result = move(grilleCpy, dir, &xP, &yP);
+			int result = moveP(grilleCpy, dir, &xP, &yP, canUseBox);
 			printf(" mv%d\n", result );
 			if(result == WIN){
 				path[iPath+1] = -1;
@@ -208,14 +317,18 @@ int findPathRecur(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bes
 					printf("\n");
 					*minLenght = lenght;
 				}
+				*canUseBox = canUseBoxI;
 				return iPath+1;
 			}
 			else if(result == MOVED && (xP != xPi || yP != yPi)){
 				lenght = findPathRecur(grilleCpy, path, bestPath, minLenght, dir, iPath+1, xP, yP, canUseBox);
 				printf("%d : %s lg%d\n",iPath, DIRECTION[dir], lenght);
 
-				if(lenght > 0 && iPath > lenght - 3)
+				if(lenght > 0 && iPath > lenght - 3){
+					*canUseBox = canUseBoxI;
 					return lenght;
+				}
+
 			}
 		}
 	}
@@ -223,7 +336,7 @@ int findPathRecur(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bes
 
 
 int findPath(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bestPath[MAX_PATHS+1], int *minLenght, int canUseBox){
-	int xPi, yPi;
+	int xPi = -1, yPi = -1;
 	for(int j=0;j<NB_CASES;j++){
 		for(int i=0;i<NB_CASES;i++){
 			if(grille[i][j] == PUMPKIN){
@@ -232,6 +345,12 @@ int findPath(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bestPath
 			}
 		}
 	}
+	if(xPi == -1){
+		xPi=NB_CASES-1;
+		yPi=NB_CASES-1;
+		grille[NB_CASES-1][NB_CASES-1] = PUMPKIN;
+	}
+
 
 	findPathRecur(grille, path, bestPath,minLenght, -1, 0, xPi, yPi, &canUseBox);
 	printf("lenght : %d\n", *minLenght);
@@ -293,12 +412,17 @@ void scanScreen(){
 			if(!found)
 				for(int terrain=0; terrain < NB_TERRAIN-1; terrain++){
 					if( terrain != TELEPORT && isTerrain[terrain](grille_color[i][j]) ){
-						if(terrain == WATER || terrain == HOLE){
+						if(terrain == WATER ){
 							DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_HOLE)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
 							if( isTerrain[WATER](color) )
 								terrain = WATER;
 							else
 								terrain = HOLE;
+						}
+						else if(terrain == HOLE || terrain == ROCK ){
+							DWORD color = Screen.pixels[((int)(grilleStart.y + (initShift.y+SHIFT_HOLE)*coefSize + (caseDimRef*coefSize) * j) * Screen.cx) + (int)(grilleStart.x + initShift.x*coefSize + (caseDimRef*coefSize) * i)];
+							if( isTerrain[WATER](color) )
+								terrain = WATER;
 						}
 						grille[i][j]=terrain;
 						found = SDL_TRUE;
@@ -322,11 +446,77 @@ void scanScreen(){
 		}
 		//printf("\n");
 	}
-	grille[NB_CASES-1][NB_CASES-1] = WATER;
 
-	//find solution
+	if(grille[NB_CASES-1][NB_CASES-1] == TELEPORT)
+		grille[NB_CASES-1][NB_CASES-1] = WATER;
 
+	//protection pumpkins
+	int xPi = -1;
+	for(int j=0;j<NB_CASES;j++){
+		for(int i=0;i<NB_CASES;i++){
+			if(grille[i][j] == PUMPKIN){
+				if(xPi != -1)
+					printf("SEVERAL PUMPKINS\n");
+				xPi=i;
+			}
+		}
+	}
+	if(xPi == -1){
+		grille[NB_CASES-1][NB_CASES-1] = PUMPKIN;
+	}
 
+	//protection hole
+
+	for(int j=0;j<NB_CASES;j++){
+		for(int i=0;i<NB_CASES;i++){
+			if(grille[i][j] == WATER && ((i!=0 && i!=NB_CASES-1) || (j!=0 && j!=NB_CASES-1))){
+				grille[i][j] = HOLE;
+			}
+		}
+	}
+
+	for(int j=0;j<NB_CASES;j++){
+		for(int i=0;i<NB_CASES;i++){
+			if(grille[i][j] == HOLE){
+				if(xPi != -1){
+					xPi=100;
+				}
+				else{
+					xPi=i;
+				}
+			}
+		}
+	}
+	if(xPi == -1){
+		grille[5][5] = HOLE;
+	}
+	else if(xPi == 100){
+		for(int j=0;j<NB_CASES;j++){
+			for(int i=0;i<NB_CASES;i++){
+				if(grille[i][j] == HOLE && ((i==0 || i==NB_CASES-1) || (j==0 || j==NB_CASES-1)) ){
+					grille[i][j] = WATER;
+				}
+			}
+		}
+	}
+
+	/*for(int j=0;j<NB_CASES;j++){
+		for(int i=0;i<NB_CASES;i++){
+			grille[i][j] = grilleOmg[j][i];
+		}
+	}*/
+
+}
+
+int validGrille(int grille[NB_CASES][NB_CASES]){
+	int cpt[NB_TERRAIN-1]={0,0,0,0,0,0,0};
+	for(int j=0;j<NB_CASES;j++){
+		for(int i=0;i<NB_CASES;i++){
+			cpt[grille[i][j]]++;
+		}
+	}
+
+	return(cpt[HOLE] == 1 && cpt[PUMPKIN] == 1 && (cpt[TELEPORT] == 0 || cpt[TELEPORT] == 2));
 }
 
 int main(int argc, char** argv)
@@ -348,7 +538,7 @@ int main(int argc, char** argv)
 
 
 
-
+	SDL_Point mouse;
 	SDL_Window* window = SDL_CreateWindow("Atlentaine Pathfinder", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 260, 260, 0);
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
 	SDL_Texture *texture = IMG_LoadTexture(renderer, "texture.png");
@@ -356,11 +546,10 @@ int main(int argc, char** argv)
 		printf("Erreur lors de la creation de texture %s", SDL_GetError());
 		return SDL_FALSE;
 	}
-
+	int scroll = 0;
 	SDL_RenderClear(renderer);
 	while(1){
-
-
+		scroll = 0;
 		SDL_Event event;
 		while( SDL_PollEvent(&event) ){
 			switch( event.type ){
@@ -368,16 +557,26 @@ int main(int argc, char** argv)
 					// fermer
 					return 0;
 					break;
+					// SI EVENMENT DE ROULETTE SOURIS
+				case SDL_MOUSEWHEEL:
+					scroll = event.wheel.y;
+					printf("%d\n",scroll );
+					break;
 			}
 		}
 
 		int findSolution = SDL_FALSE;
-		if((GetKeyState(VK_SPACE) & 0x8000)){//attente espace
+		if((GetKeyState(VK_SPACE) & 0x8000)){// espace
 			scanScreen();
-			findSolution = SDL_TRUE;
+			if(validGrille(grille))
+				findSolution = SDL_TRUE;
+		}
+		else if((GetKeyState(VK_RETURN) & 0x8000)){// entrer
+			if(validGrille(grille))
+				findSolution = SDL_TRUE;
 		}
 
-		SDL_Rect dest = {0,0, 20, 20};
+		SDL_Rect dest = {0,0, 21, 21};
 		SDL_Rect src = {0,0, 39, 39};
 		for(int j=0;j<NB_CASES;j++){
 			for(int i=0; i<NB_CASES; i++){
@@ -391,7 +590,29 @@ int main(int argc, char** argv)
 			dest.y += 20;
 			dest.x = 0;
 		}
+		SDL_CaptureMouse(SDL_TRUE);
+		SDL_GetMouseState(&(mouse.x),&(mouse.y));
+		//printf("%d %d\n", mouse.x, mouse.y);
 
+		if(mouse.x < 0)
+			mouse.x-=20;
+		if(mouse.y < 0)
+			mouse.y-=20;
+
+		mouse.x/=20;
+		mouse.y/=20;
+		//printf("%d %d\n", mouse.x, mouse.y);
+		dest.x=mouse.x*20;
+		dest.y=mouse.y*20;
+		SDL_RenderDrawRect(renderer, &dest);
+
+		if(mouse.x >= 0 && mouse.x < NB_CASES && mouse.y >= 0 && mouse.y < NB_CASES ){
+			grille[mouse.x][mouse.y] += scroll;
+			while(grille[mouse.x][mouse.y] < 0)
+				grille[mouse.x][mouse.y]+=(NB_TERRAIN-1);
+
+			grille[mouse.x][mouse.y] = grille[mouse.x][mouse.y]%(NB_TERRAIN-1);
+		}
 		SDL_RenderPresent(renderer);
 
 		currentTime = SDL_GetTicks();
@@ -408,6 +629,7 @@ int main(int argc, char** argv)
 			int canUseBox = SDL_FALSE;
 			findPath(grille, path, bestPath, &minLenght, canUseBox);
 			if(minLenght == MAX_PATHS+2){
+				printf("FINDING WITH BOX\n\n\n\n\n\n" );
 				canUseBox = SDL_TRUE;
 				findPath(grille, path, bestPath, &minLenght, canUseBox);
 			}
