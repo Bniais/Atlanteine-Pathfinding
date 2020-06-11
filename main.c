@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define NB_CASES 13
-#define MAX_PATHS 20
+#define MAX_PATHS 50
 const char* DIRECTION[4] = {"bas", "gauche", "haut", "droite"};
 
 POINT grilleRef = {584, 579};
@@ -133,10 +133,10 @@ int moveP(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP, int* can
 		if (*yP+move >= NB_CASES || grilleCpy[*xP][*yP+move] == WATER)
 			return LOSE;
 		else if (grilleCpy[*xP][*yP+move] == HOLE)
-			{
-				*yP += move;
-				return WIN;
-			}
+		{
+			*yP += move;
+			return WIN;
+		}
 		else if( move == 1 && grilleCpy[*xP][*yP+move] == CAISSE && *canUseBox && *yP+move+1 < NB_CASES && grilleCpy[*xP][*yP+move+1] == PLAIN){
 			//printf("moved caisse\n\n\n\n");
 			grilleCpy[*xP][*yP+move+1] = CAISSE;
@@ -155,6 +155,8 @@ int moveP(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP, int* can
 						*xP = i;
 						*yP = j+1;
 						int b = 0;
+						if(grille[*xP][*yP] == HOLE)
+							return -WIN;
 						return -moveP(grilleCpy, dir, xP, yP, &b);
 					}
 				}
@@ -194,6 +196,8 @@ int moveP(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP, int* can
 						*xP = i-1;
 						*yP = j;
 						int b = 0;
+						if(grille[*xP][*yP] == HOLE)
+							return -WIN;
 						return -moveP(grilleCpy, dir, xP, yP, &b);
 					}
 				}
@@ -233,6 +237,8 @@ int moveP(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP, int* can
 						*xP = i;
 						*yP = j-1;
 						int b = 0;
+						if(grille[*xP][*yP] == HOLE)
+							return -WIN;
 						return -moveP(grilleCpy, dir, xP, yP, &b);
 					}
 				}
@@ -251,6 +257,7 @@ int moveP(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP, int* can
 			return LOSE;
 		else if (grilleCpy[*xP+move][*yP] == HOLE)
 			{
+				printf("hole\n");
 				*xP += move;
 				return WIN;
 			}
@@ -272,6 +279,8 @@ int moveP(int grilleCpy[NB_CASES][NB_CASES], int dir, int *xP, int *yP, int* can
 						*xP = i+1;
 						*yP = j;
 						int b=0;
+						if(grille[*xP][*yP] == HOLE)
+							return -WIN;
 						return -moveP(grilleCpy, dir, xP, yP, &b);
 					}
 				}
@@ -314,9 +323,12 @@ int findPathRecur(int grille[NB_CASES][NB_CASES], int path[MAX_PATHS+1], int bes
 		else{
 			if(iPath > 0)
 				pos[iPath-1] = (SDL_Point){xPi, yPi};
+
+			if(iPath>8 && (pos[iPath-1].x==pos[iPath-5].x && pos[iPath-5].x==pos[iPath-9].x) && (pos[iPath-1].y==pos[iPath-5].y && pos[iPath-5].y==pos[iPath-9].y))
+				return LOSE;
 			xP = (xPi<0?xPi+100:xPi);
 			yP = (yPi<0?yPi+100:yPi);
-			//printf("%d : %s, %d %d",iPath, DIRECTION[dir], xP, yP );
+			printf("%d : %s, %d %d \n",iPath, DIRECTION[dir], xP, yP );
 			memcpy(&(grilleCpy[0][0]), &(grille[0][0]), NB_CASES* NB_CASES*sizeof(int));
 			path[iPath]=dir;
 
@@ -588,12 +600,15 @@ void SDL_RenderDrawThiccLine(SDL_Renderer* renderer,int x1,int y1,int x2,int y2)
 		SDL_RenderDrawLine(renderer, x1, y1-1,x2,y2-1);
 	}
 }
+int signOf( float f){
+	return (f > 0) ? 1 : ((f < 0 )? -1 : 0);
+}
 
 int main(int argc, char** argv)
 {
 	srand(time(NULL));
-	HWND hWnd = GetConsoleWindow();
-	ShowWindow( hWnd, SW_HIDE );
+	/*HWND hWnd = GetConsoleWindow();
+	ShowWindow( hWnd, SW_HIDE );*/
 	SDL_Init(SDL_INIT_VIDEO );
 	xSetupScreenBitmap();
 
@@ -609,7 +624,7 @@ int main(int argc, char** argv)
 	int rdyToSpace, rdyToTab, rdyToAlt;
 
 	SDL_Point mouse;
-	SDL_Window* window = SDL_CreateWindow("Atlentaine Pathfinder", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 260, 300, 0);
+	SDL_Window* window = SDL_CreateWindow("Atlentaine Pathfinder", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 260, 297, 0);
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
 	SDL_Texture *texture = IMG_LoadTexture(renderer, "texture.png");
 	if( texture == NULL ){
@@ -638,6 +653,9 @@ int main(int argc, char** argv)
 
 		int findSolution = SDL_FALSE;
 		int grilleChanged = SDL_FALSE;
+		if( (GetKeyState(VK_ESCAPE) & 0x8000)){
+			grilleStart.x = 0;
+		}
 		if( (GetKeyState(VK_SPACE) & 0x8000)){// espace
 			if(rdyToSpace){
 				grilleChanged  = SDL_TRUE;
@@ -871,6 +889,25 @@ int main(int argc, char** argv)
 					SDL_RenderDrawThiccLine(renderer, (bestPos[iTraj-1].x<0?bestPos[iTraj-1].x+100:bestPos[iTraj-1].x) * 20+10, (bestPos[iTraj-1].y<0?bestPos[iTraj-1].y+100:bestPos[iTraj-1].y) * 20+10, bestPos[iTraj].x *20+10, bestPos[iTraj].y *20+10);
 				}
 				//printf("%s (%d %d)- ",DIRECTION[bestPath[i]], bestPos[i].x, bestPos[i].y);
+
+				if(bestPos[iTraj].x > 0 && grille[bestPos[iTraj].x][bestPos[iTraj].y] == CAISSE){
+					int dX = signOf(bestPos[iTraj].x-bestPos[iTraj-1].x);
+					int dY = signOf(bestPos[iTraj].y-bestPos[iTraj-1].y);
+					dest.w = 20; dest.h=20; dest.x = 20*(bestPos[iTraj].x+dX); dest.y = 20*(bestPos[iTraj].y+dY);
+					src.w = 40; src.h =40; src.x = UNKNOWN * 40;
+					SDL_RenderCopy(renderer, texture, &src, &dest);
+					SDL_SetRenderDrawColor(renderer, 0x56,0x5d,0x36, 255);
+					if(dX==1)
+						SDL_RenderDrawThiccLine(renderer, dest.x - 10, dest.y + 10, dest.x - 10 + dX*20, dest.y + 10 + dY*20);
+					if(dX==-1)
+						SDL_RenderDrawThiccLine(renderer, dest.x + 30, dest.y + 10, dest.x + 30 + dX*20, dest.y + 10 + dY*20);
+
+					if(dY==1)
+						SDL_RenderDrawThiccLine(renderer, dest.x +10, dest.y - 10, dest.x +10 + dX*20, dest.y - 10 + dY*20);
+					if(dY==-1)
+						SDL_RenderDrawThiccLine(renderer, dest.x + 10, dest.y +30, dest.x + 10 + dX*20, dest.y + 30 + dY*20);
+
+				}
 			}
 		}
 
