@@ -607,8 +607,8 @@ int signOf( float f){
 int main(int argc, char** argv)
 {
 	srand(time(NULL));
-	/*HWND hWnd = GetConsoleWindow();
-	ShowWindow( hWnd, SW_HIDE );*/
+	HWND hWnd = GetConsoleWindow();
+	ShowWindow( hWnd, SW_HIDE );
 	SDL_Init(SDL_INIT_VIDEO );
 	xSetupScreenBitmap();
 
@@ -809,14 +809,18 @@ int main(int argc, char** argv)
 			if(bestPos[0].x < 0){
 				//printf("first tp\n");
 				for(int i=0; i<NB_CASES; i++){
-					if(grille[xPump][i] == TELEPORT)
+					if(grille[xPump][i] == TELEPORT && (bestPath[0]!=1 && bestPath[0]!=3)){
 						SDL_RenderDrawThiccLine(renderer, xPump * 20 +10, yPump * 20+10, xPump *20+10, i *20+10);
-					else if(grille[i][yPump] == TELEPORT)
+						break;
+					}
+					else if(grille[i][yPump] == TELEPORT && (bestPath[0]!=0 && bestPath[0]!=2)){
 						SDL_RenderDrawThiccLine(renderer, xPump * 20 +10, yPump * 20+10, i *20+10, yPump *20+10);
+						break;
+					}
 				}
 				for(int j=0;j<NB_CASES ;j++){
 					for(int i=0; i<NB_CASES ; i++){
-						if(grille[i][j] == TELEPORT && j!=yPump && i!=xPump){
+						if(grille[i][j] == TELEPORT && (j!=yPump || (bestPath[0]!=1 && bestPath[0]!=3)) && (i!=xPump || (bestPath[0]!=0 && bestPath[0]!=2))){
 							//printf("tp out %d %d\n", i, j );
 							SDL_RenderDrawThiccLine(renderer, i * 20 +10, j * 20+10, (bestPos[0].x+100) *20+10, (bestPos[0].y+100) *20+10);
 						}
@@ -855,7 +859,7 @@ int main(int argc, char** argv)
 						b=255;
 					sB*=-1;
 				}
-
+				printf("%d %d (path : %s) : ",iTraj, bestPos[iTraj].x, DIRECTION[bestPath[iTraj]]);
 				SDL_SetRenderDrawColor(renderer, r,g,b,255);
 				if(bestPos[iTraj].x < 0){
 					//printf("aie %d %d \n", bestPos[iTraj].x, bestPos[iTraj].y);
@@ -871,25 +875,26 @@ int main(int argc, char** argv)
 					//tp vers i
 					for(int j=0;j<NB_CASES ;j++){
 						for(int k=0; k<NB_CASES ; k++){
-							if(grille[k][j] == TELEPORT && j!= realPosM.y && k!= realPosM.x){
+							if(grille[k][j] == TELEPORT && (j!= realPosM.y || (bestPath[iTraj]!=1 && bestPath[iTraj]!=3)) && (k!= realPosM.x || (bestPath[iTraj]!=0 && bestPath[iTraj]!=2))){
+								printf("tp vers i : %d %d %d %d ", k * 20 +10, j * 20+10, (bestPos[iTraj].x+100) *20+10, (bestPos[iTraj].y+100) *20+10);
 								SDL_RenderDrawThiccLine(renderer, k * 20 +10, j * 20+10, (bestPos[iTraj].x+100) *20+10, (bestPos[iTraj].y+100) *20+10);
 							}
 						}
 					}
-					for(int j=0;j<NB_CASES ;j++){
+					/*for(int j=0;j<NB_CASES ;j++){
 						for(int i=0; i<NB_CASES ; i++){
 							if(grille[i][j] == TELEPORT && j!=realPosM.y && i!=realPosM.x){
-
+								printf(" idk :%d %d %d %d", i * 20 +10, j * 20+10, (bestPos[iTraj].x+100) *20+10, (bestPos[iTraj].y+100) *20+10);
 								SDL_RenderDrawThiccLine(renderer, i * 20 +10, j * 20+10, (bestPos[iTraj].x+100) *20+10, (bestPos[iTraj].y+100) *20+10);
 							}
 						}
-					}
+					}*/
 				}
 				else{
 					SDL_RenderDrawThiccLine(renderer, (bestPos[iTraj-1].x<0?bestPos[iTraj-1].x+100:bestPos[iTraj-1].x) * 20+10, (bestPos[iTraj-1].y<0?bestPos[iTraj-1].y+100:bestPos[iTraj-1].y) * 20+10, bestPos[iTraj].x *20+10, bestPos[iTraj].y *20+10);
 				}
 				//printf("%s (%d %d)- ",DIRECTION[bestPath[i]], bestPos[i].x, bestPos[i].y);
-
+				printf("\n");
 				if(bestPos[iTraj].x > 0 && grille[bestPos[iTraj].x][bestPos[iTraj].y] == CAISSE){
 					int dX = signOf(bestPos[iTraj].x-bestPos[iTraj-1].x);
 					int dY = signOf(bestPos[iTraj].y-bestPos[iTraj-1].y);
