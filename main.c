@@ -593,11 +593,12 @@ void SDL_RenderDrawThiccLine(SDL_Renderer* renderer,int x1,int y1,int x2,int y2)
 	SDL_RenderDrawLine(renderer, x1, y1,x2,y2);
 	if(x1==x2){
 		SDL_RenderDrawLine(renderer, x1-1, y1,x2-1,y2);
-		SDL_RenderDrawLine(renderer, x1-1, y1,x2-1,y2);
+		SDL_RenderDrawLine(renderer, x1+1, y1,x2+1,y2);
+
 	}
 	else{
 		SDL_RenderDrawLine(renderer, x1, y1-1,x2,y2-1);
-		SDL_RenderDrawLine(renderer, x1, y1-1,x2,y2-1);
+		SDL_RenderDrawLine(renderer, x1, y1+1,x2,y2+1);
 	}
 }
 int signOf( float f){
@@ -617,10 +618,13 @@ int main(int argc, char** argv)
 
 	SDL_Point pos[MAX_PATHS+1];
 	SDL_Point bestPos[MAX_PATHS+1];
+	SDL_Point bestPosBox[MAX_PATHS+1];
 	int path[MAX_PATHS+1];
 	int bestPath[MAX_PATHS+1];
+	int bestPathBox[MAX_PATHS+1];
 	int xPump, yPump;
 	int grilleValide = SDL_FALSE;
+	int drawBoxPath = SDL_FALSE;
 	int rdyToSpace, rdyToTab, rdyToAlt;
 
 	SDL_Point mouse;
@@ -653,6 +657,21 @@ int main(int argc, char** argv)
 
 		int findSolution = SDL_FALSE;
 		int grilleChanged = SDL_FALSE;
+		int buildTile = -1;
+
+		for(int i=0x31; i<0x31+NB_TERRAIN-1; i++)
+			if((GetKeyState(i) & 0x8000))
+				buildTile = i-0x31;
+
+		if( (GetKeyState(0x52) & 0x8000)){//r
+			for(int j=0;j<NB_CASES;j++){
+				for(int i=0; i<NB_CASES; i++){
+					grille[i][j] = 0;
+				}
+			}
+			grilleChanged = SDL_TRUE;
+			flagWrong = validGrille(grille);
+		}
 		if( (GetKeyState(VK_ESCAPE) & 0x8000)){
 			grilleStart.x = 0;
 		}
@@ -772,6 +791,8 @@ int main(int argc, char** argv)
 		dest.y = 260;
 
 		if(mouse.x >= 0 && mouse.x < NB_CASES && mouse.y >= 0 && mouse.y < NB_CASES ){
+			if(buildTile !=-1)
+				grille[mouse.x][mouse.y] = buildTile;
 			grille[mouse.x][mouse.y] += scroll;
 			if(scroll){
 				wrongTiles[mouse.x][mouse.y] = 0;
@@ -806,6 +827,7 @@ int main(int argc, char** argv)
 
 
 		if(grilleValide){
+
 			if(bestPos[0].x < 0){
 				//printf("first tp\n");
 				for(int i=0; i<NB_CASES; i++){
@@ -895,9 +917,9 @@ int main(int argc, char** argv)
 				}
 				//printf("%s (%d %d)- ",DIRECTION[bestPath[i]], bestPos[i].x, bestPos[i].y);
 				printf("\n");
-				if(bestPos[iTraj].x > 0 && grille[bestPos[iTraj].x][bestPos[iTraj].y] == CAISSE){
-					int dX = signOf(bestPos[iTraj].x-bestPos[iTraj-1].x);
-					int dY = signOf(bestPos[iTraj].y-bestPos[iTraj-1].y);
+				if(bestPos[iTraj].x >= 0 && grille[bestPos[iTraj].x][bestPos[iTraj].y] == CAISSE){
+					int dX = (bestPath[iTraj] == 1 ? -1: (bestPath[iTraj] == 3 ?1:0));
+					int dY = (bestPath[iTraj] == 0 ? 1: (bestPath[iTraj] == 2 ?-1:0));
 					dest.w = 20; dest.h=20; dest.x = 20*(bestPos[iTraj].x+dX); dest.y = 20*(bestPos[iTraj].y+dY);
 					src.w = 40; src.h =40; src.x = UNKNOWN * 40;
 					SDL_RenderCopy(renderer, texture, &src, &dest);
@@ -914,7 +936,166 @@ int main(int argc, char** argv)
 
 				}
 			}
+			if(bestPos[0].x >= 0 && grille[bestPos[0].x][bestPos[0].y] == CAISSE){
+				int dX = (bestPath[0] == 1 ? -1: (bestPath[0] == 3 ?1:0));
+				int dY = (bestPath[0] == 0 ? 1: (bestPath[0] == 2 ?-1:0));
+				dest.w = 20; dest.h=20; dest.x = 20*(bestPos[0].x+dX); dest.y = 20*(bestPos[0].y+dY);
+				src.w = 40; src.h =40; src.x = UNKNOWN * 40;
+				SDL_RenderCopy(renderer, texture, &src, &dest);
+				SDL_SetRenderDrawColor(renderer, 0x56,0x5d,0x36, 255);
+				if(dX==1)
+					SDL_RenderDrawLine(renderer, dest.x - 10, dest.y + 10, dest.x - 10 + dX*20, dest.y + 10 + dY*20);
+				if(dX==-1)
+					SDL_RenderDrawLine(renderer, dest.x + 30, dest.y + 10, dest.x + 30 + dX*20, dest.y + 10 + dY*20);
+
+				if(dY==1)
+					SDL_RenderDrawLine(renderer, dest.x +10, dest.y - 10, dest.x +10 + dX*20, dest.y - 10 + dY*20);
+				if(dY==-1)
+					SDL_RenderDrawLine(renderer, dest.x + 10, dest.y +30, dest.x + 10 + dX*20, dest.y + 30 + dY*20);
+
+			}
+
+
+
+			//boxpath
+			for(int iTraj=1; iTraj<MAX_PATHS && bestPathBox[iTraj]!=-1; iTraj++){
+				if(drawBoxPath){
+					SDL_SetRenderDrawColor(renderer, 0,255,255,255);
+					if(bestPosBox[0].x < 0){
+						//printf("first tp\n");
+						for(int i=0; i<NB_CASES; i++){
+							if(grille[xPump][i] == TELEPORT && (bestPathBox[0]!=1 && bestPathBox[0]!=3)){
+								SDL_RenderDrawLine(renderer, xPump * 20 +10, yPump * 20+10, xPump *20+10, i *20+10);
+								break;
+							}
+							else if(grille[i][yPump] == TELEPORT && (bestPathBox[0]!=0 && bestPathBox[0]!=2)){
+								SDL_RenderDrawLine(renderer, xPump * 20 +10, yPump * 20+10, i *20+10, yPump *20+10);
+								break;
+							}
+						}
+						for(int j=0;j<NB_CASES ;j++){
+							for(int i=0; i<NB_CASES ; i++){
+								if(grille[i][j] == TELEPORT && (j!=yPump || (bestPathBox[0]!=1 && bestPathBox[0]!=3)) && (i!=xPump || (bestPathBox[0]!=0 && bestPathBox[0]!=2))){
+									//printf("tp out %d %d\n", i, j );
+									SDL_RenderDrawLine(renderer, i * 20 +10, j * 20+10, (bestPosBox[0].x+100) *20+10, (bestPosBox[0].y+100) *20+10);
+								}
+							}
+						}
+					}else{
+						SDL_RenderDrawLine(renderer, xPump * 20 +10, yPump * 20+10, bestPosBox[0].x *20+10, bestPosBox[0].y *20+10);
+					}
+
+					int r=255,g=0, b=0;
+					int sR=-1, sG = 0, sB=1;
+					for(int iTraj=1; iTraj<MAX_PATHS && bestPathBox[iTraj]!=-1; iTraj++){
+						r+=sR*30;
+						if(r<0 || r>255){
+							if(r<0)
+								r=0;
+							else
+								r=255;
+							sR*=-1;
+							if(sG==0)
+								sG=1;
+						}
+						g += sG *30;
+						if(g<0 || g>255){
+							if(g<0)
+								g=0;
+							else
+								g=255;
+							sG*=-1;
+						}
+						b += sB *30;
+						if(b<0 || b>255){
+							if(b<0)
+								b=0;
+							else
+								b=255;
+							sB*=-1;
+						}
+						printf("%d %d (path : %s) : ",iTraj, bestPosBox[iTraj].x, DIRECTION[bestPathBox[iTraj]]);
+						SDL_SetRenderDrawColor(renderer, 255-r,255-g,255-b,255);
+						if(bestPosBox[iTraj].x < 0){
+							//printf("aie %d %d \n", bestPosBox[iTraj].x, bestPosBox[iTraj].y);
+							SDL_Point realPosM = {(bestPosBox[iTraj-1].x<0?bestPosBox[iTraj-1].x+100:bestPosBox[iTraj-1].x), (bestPosBox[iTraj-1].y<0?bestPosBox[iTraj-1].y+100:bestPosBox[iTraj-1].y)};
+							//printf("real %d %d\n", realPosM.x, realPosM.y);
+							//i-1 vers tp
+							for(int k=0; k<NB_CASES; k++){
+								if(grille[realPosM.x][k] == TELEPORT)
+									SDL_RenderDrawLine(renderer, realPosM.x * 20 +10, realPosM.y * 20+10, realPosM.x *20+10, k *20+10);
+								else if(grille[k][realPosM.y] == TELEPORT)
+									SDL_RenderDrawLine(renderer, realPosM.x * 20 +10, realPosM.y * 20+10, k *20+10, realPosM.y *20+10);
+							}
+							//tp vers i
+							for(int j=0;j<NB_CASES ;j++){
+								for(int k=0; k<NB_CASES ; k++){
+									if(grille[k][j] == TELEPORT && (j!= realPosM.y || (bestPathBox[iTraj]!=1 && bestPathBox[iTraj]!=3)) && (k!= realPosM.x || (bestPathBox[iTraj]!=0 && bestPathBox[iTraj]!=2))){
+										printf("tp vers i : %d %d %d %d ", k * 20 +10, j * 20+10, (bestPosBox[iTraj].x+100) *20+10, (bestPosBox[iTraj].y+100) *20+10);
+										SDL_RenderDrawLine(renderer, k * 20 +10, j * 20+10, (bestPosBox[iTraj].x+100) *20+10, (bestPosBox[iTraj].y+100) *20+10);
+									}
+								}
+							}
+							/*for(int j=0;j<NB_CASES ;j++){
+								for(int i=0; i<NB_CASES ; i++){
+									if(grille[i][j] == TELEPORT && j!=realPosM.y && i!=realPosM.x){
+										printf(" idk :%d %d %d %d", i * 20 +10, j * 20+10, (bestPosBox[iTraj].x+100) *20+10, (bestPosBox[iTraj].y+100) *20+10);
+										SDL_RenderDrawLine(renderer, i * 20 +10, j * 20+10, (bestPosBox[iTraj].x+100) *20+10, (bestPosBox[iTraj].y+100) *20+10);
+									}
+								}
+							}*/
+						}
+						else{
+							SDL_RenderDrawLine(renderer, (bestPosBox[iTraj-1].x<0?bestPosBox[iTraj-1].x+100:bestPosBox[iTraj-1].x) * 20+10, (bestPosBox[iTraj-1].y<0?bestPosBox[iTraj-1].y+100:bestPosBox[iTraj-1].y) * 20+10, bestPosBox[iTraj].x *20+10, bestPosBox[iTraj].y *20+10);
+						}
+						//printf("%s (%d %d)- ",DIRECTION[bestPathBox[i]], bestPosBox[i].x, bestPosBox[i].y);
+						printf("\n");
+						if(bestPosBox[iTraj].x >= 0 && grille[bestPosBox[iTraj].x][bestPosBox[iTraj].y] == CAISSE){
+							int dX = (bestPathBox[iTraj] == 1 ? -1: (bestPathBox[iTraj] == 3 ?1:0));
+							int dY = (bestPathBox[iTraj] == 0 ? 1: (bestPathBox[iTraj] == 2 ?-1:0));
+
+							dest.w = 20; dest.h=20; dest.x = 20*(bestPosBox[iTraj].x+dX); dest.y = 20*(bestPosBox[iTraj].y+dY);
+							src.w = 40; src.h =40; src.x = UNKNOWN * 40;
+							SDL_RenderCopy(renderer, texture, &src, &dest);
+							SDL_SetRenderDrawColor(renderer, 0x56,0x5d,0x36, 255);
+							if(dX==1)
+								SDL_RenderDrawLine(renderer, dest.x - 10, dest.y + 10, dest.x - 10 + dX*20, dest.y + 10 + dY*20);
+							if(dX==-1)
+								SDL_RenderDrawLine(renderer, dest.x + 30, dest.y + 10, dest.x + 30 + dX*20, dest.y + 10 + dY*20);
+
+							if(dY==1)
+								SDL_RenderDrawLine(renderer, dest.x +10, dest.y - 10, dest.x +10 + dX*20, dest.y - 10 + dY*20);
+							if(dY==-1)
+								SDL_RenderDrawLine(renderer, dest.x + 10, dest.y +30, dest.x + 10 + dX*20, dest.y + 30 + dY*20);
+
+						}
+
+
+					}
+					if(bestPosBox[0].x >= 0 && grille[bestPosBox[0].x][bestPosBox[0].y] == CAISSE){
+						int dX = (bestPathBox[0] == 1 ? -1: (bestPathBox[0] == 3 ?1:0));
+						int dY = (bestPathBox[0] == 0 ? 1: (bestPathBox[0] == 2 ?-1:0));
+						dest.w = 20; dest.h=20; dest.x = 20*(bestPosBox[0].x+dX); dest.y = 20*(bestPosBox[0].y+dY);
+						src.w = 40; src.h =40; src.x = UNKNOWN * 40;
+						SDL_RenderCopy(renderer, texture, &src, &dest);
+						SDL_SetRenderDrawColor(renderer, 0x56,0x5d,0x36, 255);
+						if(dX==1)
+							SDL_RenderDrawLine(renderer, dest.x - 10, dest.y + 10, dest.x - 10 + dX*20, dest.y + 10 + dY*20);
+						if(dX==-1)
+							SDL_RenderDrawLine(renderer, dest.x + 30, dest.y + 10, dest.x + 30 + dX*20, dest.y + 10 + dY*20);
+
+						if(dY==1)
+							SDL_RenderDrawLine(renderer, dest.x +10, dest.y - 10, dest.x +10 + dX*20, dest.y - 10 + dY*20);
+						if(dY==-1)
+							SDL_RenderDrawLine(renderer, dest.x + 10, dest.y +30, dest.x + 10 + dX*20, dest.y + 30 + dY*20);
+
+					}
+				}
+			}
+
 		}
+
+
 
 		SDL_RenderPresent(renderer);
 
@@ -930,14 +1111,21 @@ int main(int argc, char** argv)
 
 		SDL_RenderClear(renderer);
 		if(findSolution){
+			drawBoxPath = SDL_FALSE;
 			int minLenght = MAX_PATHS+2;
+			int minLenghtBox = MAX_PATHS+2;
 			int canUseBox = SDL_FALSE;
 			findPath(grille, path, bestPath, pos, bestPos, &minLenght, canUseBox);
+			canUseBox = SDL_TRUE;
 			if(minLenght == MAX_PATHS+2){
-				//printf("FINDING WITH BOX\n\n\n\n\n\n" );
-				canUseBox = SDL_TRUE;
 				findPath(grille, path, bestPath, pos, bestPos, &minLenght, canUseBox);
 			}
+			else{
+				findPath(grille, path, bestPathBox, pos, bestPosBox, &minLenghtBox, canUseBox);
+			}
+
+			if(minLenghtBox < minLenght)
+				drawBoxPath = SDL_TRUE;
 
 			if(minLenght < MAX_PATHS+2){
 				grilleValide = SDL_TRUE;
