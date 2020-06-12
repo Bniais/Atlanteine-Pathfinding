@@ -7,6 +7,8 @@ Make sure the whole atlanteine game is visible during scans.
 
 For Windows only.
 
+https://youtu.be/c5eWEuly-Qc
+
 
 
 Commands :
