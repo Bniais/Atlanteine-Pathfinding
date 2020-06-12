@@ -10,14 +10,17 @@ For Windows only.
 
 
 Commands :
--In-game :
+
+  In-game :
+
       Space : Scan and find path (first scan gets the game size)
 
       Alt : Scan the wrong tiles and find path(they are surrounded by a red square)
       
       Echap : Forget the savec game size (if you moved your game window, press it and next scan will get new game dimension)
       
--Editing :
+  Editing :
+  
       Mouse wheel : Change the tile your mouse is aiming at depending on its content (in the order at bottom)
   
       1-7 : Change the tile your mouse is aiming at (in the order at bottom)
