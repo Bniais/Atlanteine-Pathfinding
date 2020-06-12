@@ -1,7 +1,7 @@
 # Atlanteine-Pathfinding
 Created by : Bniais @HugoIecomte
 
-A scanner and pathfinder for kadokado Atlanteine game.
+A scanner and pathfinder for kadokado Atlanteine game : http://www.kadokado.com/game/38/play
 
 Make sure the whole atlanteine game is visible during scans.
 
